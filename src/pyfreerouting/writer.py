@@ -83,7 +83,7 @@ def _write_layer_rule(lr: LayerRule) -> str:
     # )
     return _block(
         f"layer_rule {_atom(lr.layer_name)}",
-        _inline("active", lr.active.value),
+        _inline("active", "on" if lr.active else "off"),
         _inline("preferred_direction", lr.preferred_direction.value),
         _inline(
             "preferred_direction_trace_costs",
@@ -99,10 +99,10 @@ def _write_layer_rule(lr: LayerRule) -> str:
 def _write_autoroute_settings(ar: AutorouteSettings) -> str:
     return _block(
         "autoroute_settings",
-        _inline("fanout", ar.fanout.value),
-        _inline("autoroute", ar.autoroute.value),
-        _inline("postroute", ar.postroute.value),
-        _inline("vias", ar.vias.value),
+        _inline("fanout", "on" if ar.fanout else "off"),
+        _inline("autoroute", "on" if ar.autoroute else "off"),
+        _inline("postroute", "on" if ar.postroute else "off"),
+        _inline("vias", "on" if ar.vias else "off"),
         _inline("via_costs", str(ar.via_costs)),
         _inline("plane_via_costs", str(ar.plane_via_costs)),
         _inline("start_ripup_costs", str(ar.start_ripup_costs)),
