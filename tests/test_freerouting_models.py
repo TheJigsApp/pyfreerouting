@@ -20,6 +20,7 @@ from pyfreerouting.rules import (
 )
 from pyfreerouting import parser
 from pyfreerouting.parser import parse_rules
+from pyfreerouting import writer
 
 
 class TestFreeRoutingRules(unittest.TestCase):
@@ -30,10 +31,6 @@ class TestFreeRoutingRules(unittest.TestCase):
     def _load(self, sexp: str, key: str) -> list:
         """Parse a wrapper s-expression and find the first child by key."""
         return parser._find(sexpdata.loads(sexp), key)
-
-    # ------------------------------------------------------------------
-    # Already provided
-    # ------------------------------------------------------------------
 
     def test_parse_name(self):
         result = parse_rules("(rules PCB test-name.dsn\n)")
@@ -321,6 +318,18 @@ class TestFreeRoutingRules(unittest.TestCase):
         self.assertEqual(kicad_cls.name, "kicad_default")
         self.assertIn("GND", kicad_cls.nets)
         self.assertEqual(len(kicad_cls.nets), 39)
+
+    def test_round_trip(self):
+        sample_text = (
+            Path(__file__).parent / "data" / "rules-2-layers.rules"
+        ).read_text()
+        result = parse_rules(sample_text)
+        result_text = writer.write_rules(rules=result)
+        print(result_text)
+        reparsed_result = parse_rules(result_text)
+        print(result)
+        print(reparsed_result)
+        self.assertEqual(result, reparsed_result)
 
 
 if __name__ == "__main__":
