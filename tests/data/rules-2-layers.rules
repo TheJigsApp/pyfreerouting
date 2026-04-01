@@ -63,7 +63,7 @@
     )
   )
   (class "kicad_default"
-    GND "NET_2" "NET_3" "NET_4" "NET_5" "NET_6" "Net_2" "Net_3"
+    GND "Net_2" "Net_3"
     "Net_4" "Net_5" "Net_6" "Net_7" "Net_8" "Net_9" "Net_10" "Net_11"
     "Net_12" "Net_13" "Net_14" "Net_15" "Net_16" "Net_17" "Net_18" "Net_19"
     "Net_20" "Net_21" "Net_22" "Net_23" "Net_24" "Net_25" "Net_26" "Net_27"
