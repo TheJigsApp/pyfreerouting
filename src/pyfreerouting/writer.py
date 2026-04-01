@@ -13,15 +13,9 @@ from typing import get_args
 from .rules import (
     AnyRule,
     AutorouteSettings,
-    Circuit,
     ClearanceRule,
     LayerRule,
-    NetClass,
     PCBRules,
-    Padstack,
-    PadShape,
-    Via,
-    ViaRule,
     WidthRule,
 )
 
@@ -146,72 +140,6 @@ def _write_rule_block(rules: list) -> str:
     return _block("rule", *(_write_any_rule(r) for r in rules))
 
 
-def _write_padshape(shape: PadShape) -> str:
-    # (shape (circle <layer> <diameter> <x> <y>))
-    circle = _inline(
-        "circle",
-        _atom(shape.layer),
-        _fmt_float(shape.diameter_um),
-        _fmt_float(shape.x),
-        _fmt_float(shape.y),
-    )
-    return _inline("shape", circle)
-
-
-def _write_padstack(ps: Padstack) -> str:
-    return _block(
-        f"padstack {_atom(ps.name)}",
-        *(_write_padshape(s) for s in ps.shapes),
-        _inline("attach", ps.attach.value),
-    )
-
-
-def _write_via(via: Via) -> str:
-    return _inline(
-        "via",
-        _atom(via.padstack_name),
-        _atom(via.padstack_ref),
-        _atom(via.net_class),
-    )
-
-
-def _write_via_rule(vr: ViaRule) -> str:
-    return _inline("via_rule", _atom(vr.net_class), _atom(vr.via_name))
-
-
-def _write_circuit(circuit: Circuit) -> str:
-    if not circuit.use_layers:
-        return "(circuit)"
-    return _block(
-        "circuit", _inline("use_layer", *(_atom(l) for l in circuit.use_layers))
-    )
-
-
-def _write_net_class(nc: NetClass) -> str:
-    # (class <name>
-    #   [net ...]          ← bare atoms, wrapped at column 80
-    #   (clearance_class ...)
-    #   (via_rule ...)
-    #   (rule ...)
-    #   (circuit ...)
-    # )
-    children: list[str] = []
-
-    if nc.nets:
-        # Wrap long net lists the same way KiCad does: groups of ~8 per line.
-        chunk_size = 8
-        for i in range(0, len(nc.nets), chunk_size):
-            children.append(" ".join(_atom(n) for n in nc.nets[i : i + chunk_size]))
-
-    children.append(_inline("clearance_class", _atom(nc.clearance_class)))
-    children.append(_inline("via_rule", _atom(nc.via_rule)))
-    if nc.rules:
-        children.append(_write_rule_block(nc.rules))
-    children.append(_write_circuit(nc.circuit))
-
-    return _block(f"class {_atom(nc.name)}", *children)
-
-
 # ---------------------------------------------------------------------------
 # Top-level entry point
 # ---------------------------------------------------------------------------
@@ -231,10 +159,5 @@ def write_rules(rules: PCBRules) -> str:
 
     if rules.rules:
         children.append(_write_rule_block(rules.rules))
-
-    children.extend(_write_padstack(ps) for ps in rules.padstacks)
-    children.extend(_write_via(v) for v in rules.vias)
-    children.extend(_write_via_rule(vr) for vr in rules.via_rules)
-    children.extend(_write_net_class(nc) for nc in rules.net_classes)
 
     return _block(f"rules PCB {_atom(rules.design_name)}", *children)

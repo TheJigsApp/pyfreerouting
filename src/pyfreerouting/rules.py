@@ -9,9 +9,8 @@ Mirrors the s-expression structure:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
-
-from pydantic import BaseModel, Discriminator, Field, NonNegativeFloat
+from typing import Annotated, Literal, Optional, Union
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
@@ -95,8 +94,6 @@ class AutorouteSettings(BaseModel):
 # ---------------------------------------------------------------------------
 # Clearance / Rule
 # ---------------------------------------------------------------------------
-from typing import Annotated, Literal, Optional, Union
-from pydantic import BaseModel, Field
 
 
 class ClearanceRule(BaseModel):
@@ -125,88 +122,6 @@ AnyRule = Annotated[
     Union[ClearanceRule, WidthRule],
     Field(discriminator="type"),
 ]
-# ---------------------------------------------------------------------------
-# Padstack
-# ---------------------------------------------------------------------------
-
-
-class PadShape(BaseModel):
-    """(circle <layer> <diameter_um> <x> <y>)"""
-
-    layer: str
-    diameter_um: float
-    x: float = 0.0
-    y: float = 0.0
-
-
-class Padstack(BaseModel):
-    """
-    (padstack <name>
-      (shape (circle ...)) ...
-      (attach on|off)
-    )
-    """
-
-    name: str
-    shapes: list[PadShape] = Field(default_factory=list)
-    attach: OnOff
-
-
-# ---------------------------------------------------------------------------
-# Via / ViaRule
-# ---------------------------------------------------------------------------
-
-
-class Via(BaseModel):
-    """(via <padstack_name> <padstack_ref> <net_class>)"""
-
-    padstack_name: str
-    padstack_ref: str
-    net_class: str
-
-
-class ViaRule(BaseModel):
-    """(via_rule <net_class> <via_name>)"""
-
-    net_class: str
-    via_name: str
-
-
-# ---------------------------------------------------------------------------
-# Circuit / NetClass
-# ---------------------------------------------------------------------------
-
-
-class Circuit(BaseModel):
-    """(circuit (use_layer <layer> ...))"""
-
-    use_layers: list[str] = Field(default_factory=list)
-
-
-class NetClass(BaseModel):
-    """
-    (class <name>
-      [<net_name> ...]           ← NEW: nets assigned to this class
-      (clearance_class <name>)
-      (via_rule <name>)
-      (rule ...)
-      (circuit ...)
-    )
-
-    `nets` holds the bare net names that appear before the sub-blocks,
-    e.g. GND, "NET_2", etc.
-    """
-
-    name: str
-    nets: list[str] = Field(
-        default_factory=list,
-        description="Net names assigned to this class (appear before sub-blocks).",
-    )
-    clearance_class: str
-    via_rule: str
-    rules: list[AnyRule]
-    circuit: Circuit
-
 
 # ---------------------------------------------------------------------------
 # Top-level Rules block
@@ -224,15 +139,12 @@ class PCBRules(BaseModel):
       (via_rule ...) ...
       (class ...) ...
     )
+    We ignore the via types and net rules here as those are set directly in kicad and exported in the DSN
     """
 
-    design_name: str
+    design_name: str = "default"
     snap_angle: SnapAngle = SnapAngle.fortyfive_degree
     autoroute_settings: AutorouteSettings = Field(
         default_factory=lambda: AutorouteSettings()
     )
     rules: list[AnyRule] = Field(default_factory=list)
-    padstacks: list[Padstack] = Field(default_factory=list)
-    vias: list[Via] = Field(default_factory=list)
-    via_rules: list[ViaRule] = Field(default_factory=list)
-    net_classes: list[NetClass] = Field(default_factory=list)

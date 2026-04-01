@@ -4,18 +4,10 @@ from pathlib import Path
 import sexpdata
 
 from pyfreerouting.rules import (
-    AnyRule,
     ClearanceRule,
-    Circuit,
-    NetClass,
-    OnOff,
-    Padstack,
-    PadShape,
     PCBRules,
     PreferredDirection,
     SnapAngle,
-    Via,
-    ViaRule,
     WidthRule,
 )
 from pyfreerouting import parser
@@ -103,162 +95,6 @@ class TestFreeRoutingRules(unittest.TestCase):
         result = parser._parse_rule(node)
         self.assertEqual(result, [ClearanceRule(value_um=150.0, subtype=None)])
 
-    # ------------------------------------------------------------------
-    # PadShape / Padstack
-    # ------------------------------------------------------------------
-
-    def test_parse_padshape(self):
-        circle = self._load("(root (shape (circle F.Cu 600.0 0.0 0.0)))", "shape")
-        result = parser._parse_padshape(parser._find(circle, "circle"))
-        self.assertEqual(
-            result,
-            PadShape(layer="F.Cu", diameter_um=600.0, x=0.0, y=0.0),
-        )
-
-    def test_parse_padstack(self):
-        node = self._load(
-            '(root (padstack "Via[0-1]_600:300_um"'
-            "  (shape (circle F.Cu 600.0 0.0 0.0))"
-            "  (shape (circle B.Cu 600.0 0.0 0.0))"
-            "  (attach off)"
-            "))",
-            "padstack",
-        )
-        result = parser._parse_padstack(node)
-        self.assertEqual(
-            result,
-            Padstack(
-                name="Via[0-1]_600:300_um",
-                shapes=[
-                    PadShape(layer="F.Cu", diameter_um=600.0, x=0.0, y=0.0),
-                    PadShape(layer="B.Cu", diameter_um=600.0, x=0.0, y=0.0),
-                ],
-                attach=OnOff.off,
-            ),
-        )
-
-    # ------------------------------------------------------------------
-    # Via / ViaRule
-    # ------------------------------------------------------------------
-
-    def test_parse_via_unquoted_net_class(self):
-        node = self._load(
-            '(root (via "Via[0-1]_600:300_um" "Via[0-1]_600:300_um" default))',
-            "via",
-        )
-        result = parser._parse_via(node)
-        self.assertEqual(
-            result,
-            Via(
-                padstack_name="Via[0-1]_600:300_um",
-                padstack_ref="Via[0-1]_600:300_um",
-                net_class="default",
-            ),
-        )
-
-    def test_parse_via_quoted_net_class(self):
-        node = self._load(
-            '(root (via "Via[0-1]_600:300_um-kicad_default"'
-            '           "Via[0-1]_600:300_um" "kicad_default"))',
-            "via",
-        )
-        result = parser._parse_via(node)
-        self.assertEqual(
-            result,
-            Via(
-                padstack_name="Via[0-1]_600:300_um-kicad_default",
-                padstack_ref="Via[0-1]_600:300_um",
-                net_class="kicad_default",
-            ),
-        )
-
-    def test_parse_via_rule(self):
-        node = self._load('(root (via_rule default "Via[0-1]_600:300_um"))', "via_rule")
-        result = parser._parse_via_rule(node)
-        self.assertEqual(
-            result, ViaRule(net_class="default", via_name="Via[0-1]_600:300_um")
-        )
-
-    def test_parse_via_rule_quoted(self):
-        node = self._load(
-            '(root (via_rule "kicad_default" "Via[0-1]_600:300_um-kicad_default"))',
-            "via_rule",
-        )
-        result = parser._parse_via_rule(node)
-        self.assertEqual(
-            result,
-            ViaRule(
-                net_class="kicad_default",
-                via_name="Via[0-1]_600:300_um-kicad_default",
-            ),
-        )
-
-    # ------------------------------------------------------------------
-    # Circuit
-    # ------------------------------------------------------------------
-
-    def test_parse_circuit(self):
-        node = self._load("(root (circuit (use_layer F.Cu B.Cu)))", "circuit")
-        result = parser._parse_circuit(node)
-        self.assertEqual(result, Circuit(use_layers=["F.Cu", "B.Cu"]))
-
-    def test_parse_circuit_empty(self):
-        node = self._load("(root (circuit))", "circuit")
-        result = parser._parse_circuit(node)
-        self.assertEqual(result, Circuit(use_layers=[]))
-
-    # ------------------------------------------------------------------
-    # NetClass
-    # ------------------------------------------------------------------
-
-    def test_parse_net_class_default(self):
-        """'default' class has no bare net names."""
-        node = self._load(
-            """(root (class default
-                (clearance_class default)
-                (via_rule default)
-                (rule (width 200.0))
-                (circuit (use_layer F.Cu B.Cu))
-            ))""",
-            "class",
-        )
-        result = parser._parse_net_class(node)
-        self.assertEqual(
-            result,
-            NetClass(
-                name="default",
-                nets=[],
-                clearance_class="default",
-                via_rule="default",
-                rules=[WidthRule(width_um=200.0)],
-                circuit=Circuit(use_layers=["F.Cu", "B.Cu"]),
-            ),
-        )
-
-    def test_parse_net_class_with_nets(self):
-        """'kicad_default' class carries bare net names before sub-blocks."""
-        node = self._load(
-            '(root (class "kicad_default"'
-            '  GND "NET_2" "NET_3"'
-            '  (clearance_class "kicad_default")'
-            '  (via_rule "kicad_default")'
-            "  (rule (width 200.0))"
-            "  (circuit (use_layer F.Cu B.Cu))"
-            "))",
-            "class",
-        )
-        result = parser._parse_net_class(node)
-        self.assertEqual(result.name, "kicad_default")
-        self.assertEqual(result.nets, ["GND", "NET_2", "NET_3"])
-        self.assertEqual(result.clearance_class, "kicad_default")
-        self.assertEqual(result.via_rule, "kicad_default")
-        self.assertEqual(result.rules, [WidthRule(width_um=200.0)])
-        self.assertEqual(result.circuit, Circuit(use_layers=["F.Cu", "B.Cu"]))
-
-    # ------------------------------------------------------------------
-    # Full file smoke test
-    # ------------------------------------------------------------------
-
     def test_smoke_test(self):
         sample_text = (
             Path(__file__).parent / "data" / "rules-2-layers.rules"
@@ -286,38 +122,6 @@ class TestFreeRoutingRules(unittest.TestCase):
         self.assertIsInstance(result.rules[1], ClearanceRule)
         self.assertIsNone(result.rules[1].subtype)
         self.assertEqual(result.rules[3].subtype, "smd")
-
-        # padstacks
-        self.assertEqual(len(result.padstacks), 1)
-        ps = result.padstacks[0]
-        self.assertEqual(ps.name, "Via[0-1]_600:300_um")
-        self.assertEqual(len(ps.shapes), 2)
-        self.assertEqual(ps.shapes[0].layer, "F.Cu")
-        self.assertEqual(ps.shapes[0].diameter_um, 600.0)
-
-        # vias
-        self.assertEqual(len(result.vias), 2)
-        self.assertEqual(result.vias[0].net_class, "default")
-        self.assertEqual(result.vias[1].net_class, "kicad_default")
-
-        # via_rules
-        self.assertEqual(len(result.via_rules), 2)
-        self.assertEqual(result.via_rules[0].net_class, "default")
-        self.assertEqual(
-            result.via_rules[1].via_name, "Via[0-1]_600:300_um-kicad_default"
-        )
-
-        # net classes
-        self.assertEqual(len(result.net_classes), 2)
-        default_cls = result.net_classes[0]
-        self.assertEqual(default_cls.name, "default")
-        self.assertEqual(default_cls.nets, [])
-        self.assertEqual(default_cls.circuit.use_layers, ["F.Cu", "B.Cu"])
-
-        kicad_cls = result.net_classes[1]
-        self.assertEqual(kicad_cls.name, "kicad_default")
-        self.assertIn("GND", kicad_cls.nets)
-        self.assertEqual(len(kicad_cls.nets), 39)
 
     def test_round_trip(self):
         sample_text = (

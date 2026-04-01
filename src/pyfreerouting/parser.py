@@ -89,83 +89,6 @@ def _parse_rule(node: list) -> list[AnyRule]:
     return rules
 
 
-def _parse_padshape(node: list) -> PadShape:
-    # (circle <layer> <diameter> <x> <y>)
-    return PadShape(
-        layer=_sym(node[1]),
-        diameter_um=float(node[2]),
-        x=float(node[3]),
-        y=float(node[4]),
-    )
-
-
-def _parse_padstack(node: list) -> Padstack:
-    # (padstack <name> (shape (circle ...)) ... (attach on|off))
-    name = _sym(node[1])
-    shapes = [
-        _parse_padshape(_find(shape_node, "circle"))
-        for shape_node in _find_all(node, "shape")
-    ]
-    attach = OnOff(_sym(_find(node, "attach")[1]))
-    return Padstack(name=name, shapes=shapes, attach=attach)
-
-
-def _parse_via(node: list) -> Via:
-    # (via <padstack_name> <padstack_ref> <net_class>)
-    return Via(
-        padstack_name=_sym(node[1]),
-        padstack_ref=_sym(node[2]),
-        net_class=_sym(node[3]),
-    )
-
-
-def _parse_via_rule(node: list) -> ViaRule:
-    # (via_rule <net_class> <via_name>)
-    return ViaRule(net_class=_sym(node[1]), via_name=_sym(node[2]))
-
-
-def _parse_circuit(node: list) -> Circuit:
-    use_layer_node = _find(node, "use_layer")
-    layers = [_sym(t) for t in use_layer_node[1:]] if use_layer_node else []
-    return Circuit(use_layers=layers)
-
-
-def _parse_net_class(node: list) -> NetClass:
-    """
-    (class <name>
-      [<net_name> ...]       ← bare atoms that are net names
-      (clearance_class ...)
-      (via_rule ...)
-      (rule ...)
-      (circuit ...)
-    )
-    """
-    name = _sym(node[1])
-
-    # Collect bare net-name atoms (everything between the class name and the
-    # first sub-list that is a recognised keyword sub-block).
-    sub_keywords = {"clearance_class", "via_rule", "rule", "circuit"}
-    nets: list[str] = []
-    for token in node[2:]:
-        if isinstance(token, list):
-            break  # hit first sub-block → stop
-        nets.append(_sym(token))
-
-    clearance_class = _sym(_find(node, "clearance_class")[1])
-    via_rule = _sym(_find(node, "via_rule")[1])
-    rule = _parse_rule(_find(node, "rule"))
-    circuit = _parse_circuit(_find(node, "circuit"))
-
-    return NetClass(
-        name=name,
-        nets=nets,
-        clearance_class=clearance_class,
-        via_rule=via_rule,
-        rules=rule,
-        circuit=circuit,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Top-level entry point
 # ---------------------------------------------------------------------------
@@ -204,22 +127,6 @@ def parse_rules(sexp_text: str) -> PCBRules:
         pass
     try:
         rules.rules = _parse_rule(_find(node, "rule"))
-    except TypeError:
-        pass
-    try:
-        rules.padstacks = [_parse_padstack(p) for p in _find_all(node, "padstack")]
-    except TypeError:
-        pass
-    try:
-        rules.vias = [_parse_via(v) for v in _find_all(node, "via")]
-    except TypeError:
-        pass
-    try:
-        rules.via_rules = [_parse_via_rule(vr) for vr in _find_all(node, "via_rule")]
-    except TypeError:
-        pass
-    try:
-        rules.net_classes = [_parse_net_class(c) for c in _find_all(node, "class")]
     except TypeError:
         pass
 
