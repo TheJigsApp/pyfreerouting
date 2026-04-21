@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import re
-from typing import get_args
 
 from .rules import (
     AnyRule,

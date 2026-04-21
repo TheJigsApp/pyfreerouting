@@ -1,8 +1,9 @@
 import unittest
-import json
 from pathlib import Path
-import sexpdata
 
+import sexpdata
+from pyfreerouting import parser, writer
+from pyfreerouting.parser import parse_rules
 from pyfreerouting.rules import (
     ClearanceRule,
     PCBRules,
@@ -10,9 +11,6 @@ from pyfreerouting.rules import (
     SnapAngle,
     WidthRule,
 )
-from pyfreerouting import parser
-from pyfreerouting.parser import parse_rules
-from pyfreerouting import writer
 
 
 class TestFreeRoutingRules(unittest.TestCase):

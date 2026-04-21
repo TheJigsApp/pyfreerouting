@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Annotated, Literal, Optional, Union
-from pydantic import BaseModel, Field
-from pydantic import BeforeValidator, PlainSerializer
+
+from pydantic import BaseModel, BeforeValidator, Field, PlainSerializer
 
 
 def parse_onoff(v):

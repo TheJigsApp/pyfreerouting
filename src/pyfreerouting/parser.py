@@ -8,8 +8,11 @@
 # plain Python str/int/float for literals.
 # ===========================================================================
 
-from .rules import *
+import contextlib
+
 import sexpdata  # type: ignore
+
+from . import rules as _rules
 
 
 def _sym(token) -> str:
@@ -41,14 +44,14 @@ def _find_all(node: list, key: str) -> list[list]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_layer_rule(node: list) -> LayerRule:
+def _parse_layer_rule(node: list) -> _rules.LayerRule:
     # (layer_rule <name> (active ...) (preferred_direction ...) ...)
     layer_name = _sym(node[1])
-    active = OnOff(_sym(_find(node, "active")[1]))
-    pdir = PreferredDirection(_sym(_find(node, "preferred_direction")[1]))
+    active = _sym(_find(node, "active")[1])
+    pdir = _rules.PreferredDirection(_sym(_find(node, "preferred_direction")[1]))
     pd_cost = float(_find(node, "preferred_direction_trace_costs")[1])
     apd_cost = float(_find(node, "against_preferred_direction_trace_costs")[1])
-    return LayerRule(
+    return _rules.LayerRule(
         layer_name=layer_name,
         active=active,
         preferred_direction=pdir,
@@ -57,12 +60,12 @@ def _parse_layer_rule(node: list) -> LayerRule:
     )
 
 
-def _parse_autoroute_settings(node: list) -> AutorouteSettings:
-    return AutorouteSettings(
-        fanout=OnOff(_sym(_find(node, "fanout")[1])),
-        autoroute=OnOff(_sym(_find(node, "autoroute")[1])),
-        postroute=OnOff(_sym(_find(node, "postroute")[1])),
-        vias=OnOff(_sym(_find(node, "vias")[1])),
+def _parse_autoroute_settings(node: list) -> _rules.AutorouteSettings:
+    return _rules.AutorouteSettings(
+        fanout=bool(_sym(_find(node, "fanout")[1])),
+        autoroute=bool(_sym(_find(node, "autoroute")[1])),
+        postroute=bool(_sym(_find(node, "postroute")[1])),
+        vias=bool(_sym(_find(node, "vias")[1])),
         via_costs=int(_find(node, "via_costs")[1]),
         plane_via_costs=int(_find(node, "plane_via_costs")[1]),
         start_ripup_costs=int(_find(node, "start_ripup_costs")[1]),
@@ -71,20 +74,20 @@ def _parse_autoroute_settings(node: list) -> AutorouteSettings:
     )
 
 
-def _parse_clearance(node: list) -> ClearanceRule:
+def _parse_clearance(node: list) -> _rules.ClearanceRule:
     # (clearance <value> [(type <name>)])
     value = float(node[1])
     type_node = _find(node, "type")
     ctype = _sym(type_node[1]) if type_node else None
-    return ClearanceRule(value_um=value, subtype=ctype)
+    return _rules.ClearanceRule(value_um=value, subtype=ctype)
 
 
-def _parse_rule(node: list) -> list[AnyRule]:
+def _parse_rule(node: list) -> list[_rules.AnyRule]:
     width_node = _find(node, "width")
 
     rules = []
     if width_node:
-        rules.append(WidthRule(width_um=float(width_node[1])))
+        rules.append(_rules.WidthRule(width_um=float(width_node[1])))
     rules.extend(_parse_clearance(c) for c in _find_all(node, "clearance"))
     return rules
 
@@ -94,7 +97,7 @@ def _parse_rule(node: list) -> list[AnyRule]:
 # ---------------------------------------------------------------------------
 
 
-def parse_rules(sexp_text: str) -> PCBRules:
+def parse_rules(sexp_text: str) -> _rules.PCBRules:
     """
     Parse a Freerouting DSN *rules* block from its s-expression text
     representation and return a validated :class:`PCBRules` instance.
@@ -114,20 +117,14 @@ def parse_rules(sexp_text: str) -> PCBRules:
 
     # node[0] == Symbol("rules"), node[1] == Symbol("PCB"), node[2] == name
     design_name = _sym(node[2])
-    rules = PCBRules(design_name=design_name)
-    try:
-        rules.snap_angle = SnapAngle(_sym(_find(node, "snap_angle")[1]))
-    except TypeError:
-        pass
-    try:
+    rules = _rules.PCBRules(design_name=design_name)
+    with contextlib.suppress(TypeError):
+        rules.snap_angle = _rules.SnapAngle(_sym(_find(node, "snap_angle")[1]))
+    with contextlib.suppress(TypeError):
         rules.autoroute_settings = _parse_autoroute_settings(
             _find(node, "autoroute_settings")
         )
-    except TypeError:
-        pass
-    try:
+    with contextlib.suppress(TypeError):
         rules.rules = _parse_rule(_find(node, "rule"))
-    except TypeError:
-        pass
 
     return rules
